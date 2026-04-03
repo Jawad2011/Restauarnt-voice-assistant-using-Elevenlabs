@@ -1,0 +1,257 @@
+{
+  "name": "Restaurant voice agent(successful)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "n8ne",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        224,
+        -16
+      ],
+      "id": "5f34ddc5-ecd4-44cc-9df8-4d2e6f38285c",
+      "name": "Webhook",
+      "webhookId": "5f6e866c-91f1-459c-9804-5d292c560e26"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        368,
+        192
+      ],
+      "id": "a9765719-62fa-42cb-a7e4-5d16b288938b",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "R3s0KTddbk5KXn4E",
+          "name": "Google Gemini(PaLM) Api account 8793"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "booking",
+        "contextWindowLength": 30
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.5,
+      "position": [
+        496,
+        224
+      ],
+      "id": "cdea5573-3828-426b-9de8-4c7ed070321f",
+      "name": "Redis Chat Memory",
+      "notesInFlow": false,
+      "credentials": {
+        "redis": {
+          "id": "PKpRsLWsjZ3vr406",
+          "name": "Redis account 52"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1BdAmWl39jSmEoIbxciymJIVvzE1oq45m64W2GxNRYng",
+          "mode": "list",
+          "cachedResultName": "restaurant_menu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1BdAmWl39jSmEoIbxciymJIVvzE1oq45m64W2GxNRYng/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2099509094,
+          "mode": "list",
+          "cachedResultName": "Restaurant Menu",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1BdAmWl39jSmEoIbxciymJIVvzE1oq45m64W2GxNRYng/edit#gid=2099509094"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        624,
+        192
+      ],
+      "id": "3254f027-ce92-4cb3-9deb-5d364727997a",
+      "name": "Menu viewer tool",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "svD7MXx4GymUvFJP",
+          "name": "Google Sheets account 11147"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "7010371681",
+        "text": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Text', ``, 'string') }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegramTool",
+      "typeVersion": 1.2,
+      "position": [
+        752,
+        224
+      ],
+      "id": "8a1747c9-c354-441f-9fd4-8a531256420e",
+      "name": "Send updates tool",
+      "webhookId": "1c5cc063-fe58-4a48-bcbd-9791b84295a4",
+      "credentials": {
+        "telegramApi": {
+          "id": "VYzadHUXzmqW29uL",
+          "name": "Telegram account 82"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        992,
+        -16
+      ],
+      "id": "bf28a0f5-44a8-4e7c-be80-0df8e19b4161",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.eleven }}",
+        "options": {
+          "systemMessage": "=## Role\nYou are a smart, efficient AI assistant for Delta restaurant. You handle customer enquiries, help them explore the menu, take table reservations, and keep the restaurant owner informed — all in real time.\n\nYou have access to three tools:\n- **menu_viewer tool** — fetch current menu items, descriptions, prices, and availability\n- **date & time tool** — retrieve the current date and time to validate bookings and check operating hours\n- **send_updates tool** — dispatch real-time notifications to the restaurant owner or manager\n\n## Operating hours\nThe restaurant is open every day from 8:00 AM to 8:00 PM.\n\nBefore processing any reservation or enquiry, always call the `date & time tool` to get the current time. Apply this logic strictly:\n\n- If the current time is between 08:00 and 20:00 → proceed normally\n- If the current time is before 08:00 or after 20:00 → respond with:\n  \"We're currently closed. Our restaurant is open daily from 8:00 AM to 8:00 PM. Please reach out during our opening hours and we'll be happy to help.\"\n  Do not process reservations or send any owner notifications outside of operating hours.\n\n## Tool usage rules\n\n### menu_viewer\n- Call this tool whenever a customer asks about food, drinks, ingredients, pricing, dietary options, or daily specials\n- Always present menu information in a clear, conversational way — do not dump raw data\n- If a specific item is unavailable, suggest the nearest alternative from the menu results\n- Use this tool proactively if a customer is unsure what to order\n\n### date & time tool\n- Call this tool at the start of every conversation to confirm you are within operating hours\n- Call it again when validating a requested reservation time (e.g. confirm the requested date is in the future and within a reasonable booking window)\n- Never rely on assumed or guessed times — always use the tool output\n\n### send_updates tool\n- Trigger this tool immediately after every confirmed reservation with a structured payload including:\n  - Customer full name\n  - Contact number (and email if provided)\n  - Reservation date and time\n  - Party size\n  - Any special requests or dietary notes\n- Also trigger for urgent messages such as customer complaints, large-group enquiries (6+ guests), or special event requests\n- Do not trigger for general menu questions or casual conversation\n- Always confirm to the customer: \"Your booking has been confirmed and our team has been notified.\"\n\n## Handling reservations\nCollect the following before confirming any booking:\n1. Full name\n2. Preferred date and time\n3. Number of guests\n4. Phone number\n5. Any special requests (dietary needs, occasion, seating preference)\n\nValidate the requested time using `date_time`. If the time falls outside 8:00 AM – 8:00 PM, offer the nearest available slot within operating hours.\n\nRead all collected details back to the customer before finalising:\n\"Just to confirm — a table for [X] on [date] at [time] under [name]. Shall I go ahead and confirm this?\"\n\nOnly call `send_updates` after the customer confirms.\n\n## Tone and behaviour\n- Be warm, helpful, and concise — like a knowledgeable host, not a form\n- Avoid jargon or overly formal language\n- If you cannot answer something, say so honestly and offer an alternative path\n- Never guess menu items, prices, or availability — always use `menu_viewer tool`\n- Never assume the current time — always use `date & time tool`\n- If a customer seems frustrated, acknowledge it: \"I completely understand — let me sort this out for you right away.\"\n\n## Limitations\n- You do not process payments\n- You do not manage or cancel existing reservations directly — direct the customer to call the restaurant\n- You only operate and respond within the 8:00 AM – 8:00 PM window\n\n## Closing\nEnd every resolved conversation with:\n\"Thank you for reaching out to [Restaurant Name] — we look forward to seeing you soon!\"\n\n## No parameters needed from users."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        560,
+        -16
+      ],
+      "id": "cd70ac0d-fe0b-4475-b779-6cb72c2667a9",
+      "name": "Bella"
+    },
+    {
+      "parameters": {
+        "options": {
+          "timezone": "Asia/Dhaka"
+        }
+      },
+      "type": "n8n-nodes-base.dateTimeTool",
+      "typeVersion": 2,
+      "position": [
+        864,
+        192
+      ],
+      "id": "328ae54c-b1eb-4a4f-afab-9307625394ca",
+      "name": "date & time tool"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Bella",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Bella",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Bella",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Menu viewer tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Bella",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send updates tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Bella",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bella": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "date & time tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "Bella",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1fab87ed-3cd9-43b8-94cc-22fc86c0a4ff",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "20cf75cd0417fe5be3c3d8dcf7163bcd4dd5f0947193527bf3d55f850ac76577"
+  },
+  "id": "76BfRm9LJdRFXzw8",
+  "tags": []
+}
